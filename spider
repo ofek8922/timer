@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interval Timer</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --accent: #ff5c39;
+    --accent-soft: rgba(255,92,57,0.15);
+    --text: #f5f5f2;
+    --muted: #8a8f98;
+    --rest: #3ba272;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .app {
+    width: 100%;
+    max-width: 420px;
+    padding: 32px 24px 40px;
+    text-align: center;
+  }
+  .rounds-label {
+    color: var(--muted);
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .round-count {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 28px;
+  }
+  .round-count span {
+    color: var(--accent);
+  }
+  .ring-wrap {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin: 0 auto 28px;
+  }
+  svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+  }
+  circle.track {
+    fill: none;
+    stroke: #262a33;
+    stroke-width: 10;
+  }
+  circle.progress {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.2s linear, stroke 0.3s ease;
+  }
+  .center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .time {
+    font-size: 56px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .phase {
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .phase.rest { color: var(--rest); }
+  .controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  button {
+    border: none;
+    border-radius: 14px;
+    padding: 14px 22px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.08s ease, opacity 0.2s ease;
+  }
+  button:active { transform: scale(0.96); }
+  .btn-primary {
+    background: var(--accent);
+    color: #1a1a1a;
+    flex: 1;
+    max-width: 160px;
+  }
+  .btn-secondary {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #2a2e37;
+  }
+  .settings {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 8px;
+  }
+  .settings label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .settings input {
+    width: 70px;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #2a2e37;
+    background: var(--panel);
+    color: var(--text);
+    font-size: 16px;
+    text-align: center;
+    font-family: inherit;
+  }
+  .dots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    margin: 22px 0 4px;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #262a33;
+    transition: background 0.2s ease;
+  }
+  .dot.done { background: var(--accent); }
+  .dot.current { background: var(--text); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="rounds-label">Interval Workout</div>
+  <div class="round-count">Round <span id="roundNow">1</span> / <span id="roundTotal">20</span></div>
+
+  <div class="ring-wrap">
+    <svg viewBox="0 0 200 200">
+      <circle class="track" cx="100" cy="100" r="90"></circle>
+      <circle class="progress" id="progressRing" cx="100" cy="100" r="90"></circle>
+    </svg>
+    <div class="center">
+      <div class="time" id="timeDisplay">01:00</div>
+      <div class="phase" id="phaseLabel">WORK</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-secondary" id="resetBtn">Reset</button>
+    <button class="btn-primary" id="startBtn">Start</button>
+  </div>
+
+  <div class="settings" id="settingsPanel">
+    <label>Work (sec)
+      <input type="number" id="workInput" value="60" min="5" step="5">
+    </label>
+    <label>Rest (sec)
+      <input type="number" id="restInput" value="0" min="0" step="5">
+    </label>
+    <label>Rounds
+      <input type="number" id="roundsInput" value="20" min="1" step="1">
+    </label>
+  </div>
+
+  <div class="dots" id="dots"></div>
+</div>
+
+<script>
+  const workInput = document.getElementById('workInput');
+  const restInput = document.getElementById('restInput');
+  const roundsInput = document.getElementById('roundsInput');
+  const timeDisplay = document.getElementById('timeDisplay');
+  const phaseLabel = document.getElementById('phaseLabel');
+  const roundNowEl = document.getElementById('roundNow');
+  const roundTotalEl = document.getElementById('roundTotal');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const progressRing = document.getElementById('progressRing');
+  const dotsWrap = document.getElementById('dots');
+  const settingsPanel = document.getElementById('settingsPanel');
+
+  const RADIUS = 90;
+  const CIRC = 2 * Math.PI * RADIUS;
+  progressRing.style.strokeDasharray = CIRC;
+
+  let workSec = 60, restSec = 0, totalRounds = 20;
+  let currentRound = 1;
+  let phase = 'work'; // 'work' | 'rest'
+  let remaining = workSec;
+  let running = false;
+  let timerId = null;
+  let audioCtx = null;
+
+  function beep(freq = 880, dur = 0.12) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + dur);
+    } catch(e) {}
+  }
+
+  function buildDots() {
+    dotsWrap.innerHTML = '';
+    for (let i = 1; i <= totalRounds; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot';
+      d.id = 'dot-' + i;
+      dotsWrap.appendChild(d);
+    }
+    updateDots();
+  }
+
+  function updateDots() {
+    for (let i = 1; i <= totalRounds; i++) {
+      const d = document.getElementById('dot-' + i);
+      if (!d) continue;
+      d.classList.remove('done', 'current');
+      if (i < currentRound) d.classList.add('done');
+      else if (i === currentRound) d.classList.add('current');
+    }
+  }
+
+  function formatTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  }
+
+  function updateDisplay() {
+    timeDisplay.textContent = formatTime(remaining);
+    roundNowEl.textContent = currentRound;
+    roundTotalEl.textContent = totalRounds;
+    phaseLabel.textContent = phase === 'work' ? 'WORK' : 'REST';
+    phaseLabel.classList.toggle('rest', phase === 'rest');
+
+    const total = phase === 'work' ? workSec : restSec;
+    const frac = total > 0 ? remaining / total : 0;
+    progressRing.style.strokeDashoffset = CIRC * (1 - frac);
+    progressRing.style.stroke = phase === 'work' ? getComputedStyle(document.documentElement).getPropertyValue('--accent') : getComputedStyle(document.documentElement).getPropertyValue('--rest');
+    updateDots();
+  }
+
+  function readSettings() {
+    workSec = Math.max(1, parseInt(workInput.value) || 60);
+    restSec = Math.max(0, parseInt(restInput.value) || 0);
+    totalRounds = Math.max(1, parseInt(roundsInput.value) || 20);
+  }
+
+  function resetAll() {
+    clearInterval(timerId);
+    running = false;
+    readSettings();
+    currentRound = 1;
+    phase = 'work';
+    remaining = workSec;
+    startBtn.textContent = 'Start';
+    settingsPanel.classList.remove('hidden');
+    buildDots();
+    updateDisplay();
+  }
+
+  function tick() {
+    remaining -= 1;
+    if (remaining < 0) {
+      if (phase === 'work') {
+        if (restSec > 0) {
+          phase = 'rest';
+          remaining = restSec;
+          beep(660);
+        } else {
+          advanceRound();
+          return;
+        }
+      } else {
+        advanceRound();
+        return;
+      }
+    } else if (remaining <= 3 && remaining > 0) {
+      beep(440, 0.08);
+    }
+    updateDisplay();
+  }
+
+  function advanceRound() {
+    beep(880, 0.15);
+    if (currentRound >= totalRounds) {
+      clearInterval(timerId);
+      running = false;
+      startBtn.textContent = 'Start';
+      phaseLabel.textContent = 'DONE';
+      phaseLabel.classList.remove('rest');
+      timeDisplay.textContent = '00:00';
+      progressRing.style.strokeDashoffset = 0;
+      updateDots();
+      return;
+    }
+    currentRound += 1;
+    phase = 'work';
+    remaining = workSec;
+    updateDisplay();
+  }
+
+  function start() {
+    if (running) return;
+    readSettings();
+    running = true;
+    startBtn.textContent = 'Pause';
+    settingsPanel.classList.add('hidden');
+    timerId = setInterval(tick, 1000);
+  }
+
+  function pause() {
+    running = false;
+    clearInterval(timerId);
+    startBtn.textContent = 'Resume';
+  }
+
+  startBtn.addEventListener('click', () => {
+    if (running) pause();
+    else start();
+  });
+
+  resetBtn.addEventListener('click', resetAll);
+
+  [workInput, restInput, roundsInput].forEach(el => {
+    el.addEventListener('change', () => {
+      if (!running) resetAll();
+    });
+  });
+
+  resetAll();
+</script>
+</body>
+</html>
